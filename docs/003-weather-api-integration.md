@@ -35,6 +35,18 @@ OpenWeatherMap APIと連携し、天気データを取得・処理する機能�
 
 ## 実装詳細
 
+### API設定
+```bash
+# .envファイル（.gitignoreに追加済み）
+EXPO_PUBLIC_OPENWEATHER_API_KEY=your_api_key_here
+
+# APIエンドポイント
+Current Weather: https://api.openweathermap.org/data/2.5/weather
+5 Day Forecast: https://api.openweathermap.org/data/2.5/forecast
+
+# 注意: 実際のAPIキーは.envファイルに記載し、絶対にGitにコミットしないこと
+```
+
 ### weatherApi.ts
 ```typescript
 interface WeatherApiService {
