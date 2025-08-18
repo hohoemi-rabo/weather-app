@@ -1,4 +1,4 @@
-import { StyleSheet, TouchableOpacity, ScrollView, RefreshControl, ActivityIndicator } from 'react-native';
+import { StyleSheet, TouchableOpacity, ScrollView, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { LocationPermission } from '@/components/LocationPermission';
@@ -6,6 +6,7 @@ import { TomorrowWeather } from '@/components/weather/TomorrowWeather';
 import { useLocation } from '@/hooks/useLocation';
 import { useWeatherData } from '@/hooks/useWeatherData';
 import { WEATHER_ICONS } from '@/constants/weatherIcons';
+import { cacheService } from '@/services/cacheService';
 
 export default function HomeScreen() {
   const {
@@ -25,6 +26,9 @@ export default function HomeScreen() {
     loading: weatherLoading,
     error: weatherError,
     refresh: refreshWeather,
+    isFromCache,
+    isStale,
+    isOffline,
   } = useWeatherData({ location });
 
 
@@ -38,6 +42,26 @@ export default function HomeScreen() {
       await refreshLocation();
       // 位置情報取得後、自動的に天気データも更新される
     }
+  };
+
+  // キャッシュクリア（デバッグ用）
+  const handleClearCache = async () => {
+    Alert.alert(
+      'キャッシュクリア',
+      'キャッシュをクリアして最新データを取得しますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: 'クリア',
+          style: 'destructive',
+          onPress: async () => {
+            await cacheService.clearAllCache();
+            await refreshWeather();
+            Alert.alert('完了', 'キャッシュをクリアしました');
+          },
+        },
+      ]
+    );
   };
 
   // 位置情報の権限がない場合のみ権限画面を表示
@@ -140,15 +164,27 @@ export default function HomeScreen() {
               <TomorrowWeather weather={tomorrowWeather} />
             )}
             
-            {/* 最終更新時刻 */}
+            {/* 最終更新時刻とステータス */}
             {weatherData && (
               <ThemedView style={styles.updateTimeContainer}>
-                <ThemedText style={styles.updateTime}>
-                  最終更新: {new Date(weatherData.lastUpdate).toLocaleTimeString('ja-JP', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </ThemedText>
+                {isOffline && (
+                  <ThemedView style={styles.offlineIndicator}>
+                    <ThemedText style={styles.offlineText}>📵 オフライン</ThemedText>
+                  </ThemedView>
+                )}
+                <TouchableOpacity onLongPress={handleClearCache}>
+                  <ThemedText style={[
+                    styles.updateTime,
+                    isStale && styles.staleText
+                  ]}>
+                    最終更新: {weatherData.lastUpdate ? new Date(weatherData.lastUpdate).toLocaleTimeString('ja-JP', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : '---'}
+                    {isFromCache && ' (キャッシュ)'}
+                    {isStale && ' ⚠️'}
+                  </ThemedText>
+                </TouchableOpacity>
               </ThemedView>
             )}
           </ThemedView>
@@ -347,5 +383,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     opacity: 0.5,
     textAlign: 'center',
+  },
+  offlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderRadius: 12,
+    marginBottom: 8,
+    alignSelf: 'center',
+  },
+  offlineText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FF3B30',
+  },
+  staleText: {
+    color: '#FF9500',
   },
 });

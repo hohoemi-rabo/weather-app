@@ -7,8 +7,10 @@ import {
 import { 
   TodayWeather, 
   TomorrowWeather, 
-  WeatherType 
+  WeatherType,
+  WeatherData 
 } from '@/types/weather';
+import { cacheService, CACHE_DURATION } from './cacheService';
 
 class WeatherApiService {
   private apiKey: string;
@@ -250,6 +252,91 @@ class WeatherApiService {
     });
 
     return mostFrequent;
+  }
+
+  // キャッシュを使用した天気データ取得
+  async getWeatherWithCache(
+    lat: number, 
+    lon: number, 
+    forceRefresh: boolean = false
+  ): Promise<{ 
+    data: WeatherData; 
+    fromCache: boolean; 
+    isStale?: boolean;
+    offline?: boolean;
+  }> {
+    try {
+      // 強制リフレッシュでない場合はキャッシュをチェック
+      if (!forceRefresh) {
+        const cached = await cacheService.getWeatherData();
+        
+        if (cached) {
+          const isFresh = cacheService.isDataFresh(cached.timestamp, CACHE_DURATION.WEATHER);
+          
+          // キャッシュが新鮮な場合はそのまま返す
+          if (isFresh) {
+            console.log('Using fresh cached data');
+            return { 
+              data: cached.data, 
+              fromCache: true 
+            };
+          }
+        }
+      }
+
+      // APIから新しいデータを取得
+      try {
+        const [todayWeather, tomorrowWeather] = await Promise.all([
+          this.getWeatherForToday(lat, lon),
+          this.getWeatherForTomorrow(lat, lon),
+        ]);
+
+        const weatherData: WeatherData = {
+          todayWeather,
+          tomorrowWeather,
+          lastUpdate: Date.now(),
+        };
+
+        // キャッシュに保存
+        await cacheService.saveWeatherData(weatherData);
+        console.log('Weather data fetched from API and cached');
+
+        return { 
+          data: weatherData, 
+          fromCache: false 
+        };
+      } catch (apiError) {
+        console.error('API fetch failed:', apiError);
+        
+        // API取得に失敗した場合、古いキャッシュでも使用
+        const cached = await cacheService.getWeatherData();
+        if (cached) {
+          console.log('Using stale cached data due to API error');
+          return { 
+            data: cached.data, 
+            fromCache: true,
+            isStale: true 
+          };
+        }
+        
+        throw apiError;
+      }
+    } catch (error) {
+      console.error('Failed to get weather data:', error);
+      
+      // 最後の手段として古いキャッシュを返す
+      const cached = await cacheService.getWeatherData();
+      if (cached) {
+        console.log('Using offline cached data');
+        return { 
+          data: cached.data, 
+          fromCache: true,
+          offline: true 
+        };
+      }
+      
+      throw new Error('天気データを取得できません');
+    }
   }
 }
 

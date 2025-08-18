@@ -20,13 +20,9 @@ export interface TomorrowWeather {
 
 // 天気データ全体
 export interface WeatherData {
-  lastUpdate: string;
-  location: {
-    lat: number;
-    lon: number;
-  };
-  today: TodayWeather;
-  tomorrow: TomorrowWeather;
+  todayWeather: TodayWeather;
+  tomorrowWeather: TomorrowWeather;
+  lastUpdate: number;
 }
 
 // 位置情報データ

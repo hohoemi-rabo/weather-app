@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { LocationData, TodayWeather, TomorrowWeather, WeatherData } from '@/types/weather';
 import { weatherApiService } from '@/services/weatherApi';
+import { useNetworkStatus } from './useNetworkStatus';
 
 interface UseWeatherDataProps {
   location: LocationData | null;
@@ -13,6 +14,9 @@ interface UseWeatherDataReturn {
   loading: boolean;
   error: Error | null;
   refresh: () => Promise<void>;
+  isFromCache: boolean;
+  isStale: boolean;
+  isOffline: boolean;
 }
 
 export function useWeatherData({ location }: UseWeatherDataProps): UseWeatherDataReturn {
@@ -21,9 +25,14 @@ export function useWeatherData({ location }: UseWeatherDataProps): UseWeatherDat
   const [tomorrowWeather, setTomorrowWeather] = useState<TomorrowWeather | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [isFromCache, setIsFromCache] = useState(false);
+  const [isStale, setIsStale] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  
+  const networkStatus = useNetworkStatus();
 
-  // 天気データを取得
-  const fetchWeatherData = useCallback(async () => {
+  // 天気データを取得（強制リフレッシュオプション付き）
+  const fetchWeatherData = useCallback(async (forceRefresh: boolean = false) => {
     if (!location) {
       console.log('位置情報がないため天気データを取得できません');
       return;
@@ -36,49 +45,50 @@ export function useWeatherData({ location }: UseWeatherDataProps): UseWeatherDat
       console.log('天気データを取得中...', {
         lat: location.latitude,
         lon: location.longitude,
+        forceRefresh,
+        isOnline: networkStatus.isOnline,
       });
 
-      // 今日と明日の天気を並行して取得
-      const [today, tomorrow] = await Promise.all([
-        weatherApiService.getWeatherForToday(location.latitude, location.longitude),
-        weatherApiService.getWeatherForTomorrow(location.latitude, location.longitude),
-      ]);
+      // キャッシュ機能付きでデータ取得
+      const result = await weatherApiService.getWeatherWithCache(
+        location.latitude,
+        location.longitude,
+        forceRefresh
+      );
 
-      console.log('天気データ取得成功:', { today, tomorrow });
+      console.log('天気データ取得結果:', {
+        fromCache: result.fromCache,
+        isStale: result.isStale,
+        offline: result.offline,
+      });
 
       // データを更新
-      setTodayWeather(today);
-      setTomorrowWeather(tomorrow);
+      setWeatherData(result.data);
+      setTodayWeather(result.data.todayWeather);
+      setTomorrowWeather(result.data.tomorrowWeather);
       
-      // 全体のデータも構築
-      const fullWeatherData: WeatherData = {
-        lastUpdate: new Date().toISOString(),
-        location: {
-          lat: location.latitude,
-          lon: location.longitude,
-        },
-        today,
-        tomorrow,
-      };
+      // キャッシュ状態を更新
+      setIsFromCache(result.fromCache);
+      setIsStale(result.isStale || false);
+      setIsOffline(result.offline || false);
       
-      setWeatherData(fullWeatherData);
     } catch (err) {
       console.error('天気データ取得エラー:', err);
       setError(err as Error);
     } finally {
       setLoading(false);
     }
-  }, [location]);
+  }, [location, networkStatus.isOnline]);
 
-  // 手動リフレッシュ
+  // 手動リフレッシュ（強制的にAPIから取得）
   const refresh = useCallback(async () => {
-    await fetchWeatherData();
+    await fetchWeatherData(true);
   }, [fetchWeatherData]);
 
   // 位置情報が変更されたら天気データを取得
   useEffect(() => {
     if (location) {
-      fetchWeatherData();
+      fetchWeatherData(false);
     }
   }, [location, fetchWeatherData]);
 
@@ -89,5 +99,8 @@ export function useWeatherData({ location }: UseWeatherDataProps): UseWeatherDat
     loading,
     error,
     refresh,
+    isFromCache,
+    isStale,
+    isOffline: !networkStatus.isOnline,
   };
 }
