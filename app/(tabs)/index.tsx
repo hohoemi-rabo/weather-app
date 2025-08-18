@@ -2,6 +2,7 @@ import { StyleSheet, TouchableOpacity, ScrollView, RefreshControl, ActivityIndic
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { LocationPermission } from '@/components/LocationPermission';
+import { TodayWeather } from '@/components/weather/TodayWeather';
 import { useLocation } from '@/hooks/useLocation';
 import { useWeatherData } from '@/hooks/useWeatherData';
 import { WEATHER_ICONS } from '@/constants/weatherIcons';
@@ -18,6 +19,7 @@ export default function HomeScreen() {
   } = useLocation();
 
   const {
+    weatherData,
     todayWeather,
     tomorrowWeather,
     loading: weatherLoading,
@@ -85,7 +87,6 @@ export default function HomeScreen() {
       }
     >
       <ThemedView style={styles.content}>
-        <ThemedText type="title" style={styles.title}>今日の天気</ThemedText>
         
         {weatherLoading && !todayWeather ? (
           <ThemedView style={styles.loadingContainer}>
@@ -102,14 +103,18 @@ export default function HomeScreen() {
           </ThemedView>
         ) : todayWeather ? (
           <ThemedView style={styles.weatherContainer}>
-            {/* 今日の天気 */}
-            <ThemedView style={styles.todayWeatherSection}>
+            {/* 今日の天気をインラインで表示 */}
+            <ThemedView style={styles.todayContainer}>
+              <ThemedText type="title" style={styles.todayTitle}>今日の天気</ThemedText>
+              
               <ThemedText style={styles.weatherIcon}>
                 {WEATHER_ICONS[todayWeather.weather]}
               </ThemedText>
-              <ThemedText type="subtitle" style={styles.weatherText}>
+              
+              <ThemedText style={styles.weatherText}>
                 {todayWeather.weatherText}
               </ThemedText>
+              
               <ThemedView style={styles.tempContainer}>
                 <ThemedText style={styles.tempMax}>{todayWeather.tempMax}°</ThemedText>
                 <ThemedText style={styles.tempSeparator}>/</ThemedText>
@@ -122,8 +127,15 @@ export default function HomeScreen() {
                 <ThemedView style={styles.rainGrid}>
                   {['朝', '昼', '夕', '夜'].map((period, index) => (
                     <ThemedView key={period} style={styles.rainItem}>
+                      <ThemedText style={styles.rainTimeIcon}>
+                        {['🌅', '☀️', '🌆', '🌙'][index]}
+                      </ThemedText>
                       <ThemedText style={styles.rainPeriod}>{period}</ThemedText>
-                      <ThemedText style={styles.rainValue}>
+                      <ThemedText style={[
+                        styles.rainValue,
+                        todayWeather.rainChance[index] >= 70 && styles.rainHigh,
+                        todayWeather.rainChance[index] >= 40 && todayWeather.rainChance[index] < 70 && styles.rainMedium
+                      ]}>
                         {todayWeather.rainChance[index]}%
                       </ThemedText>
                     </ThemedView>
@@ -146,6 +158,18 @@ export default function HomeScreen() {
                 </ThemedView>
               </ThemedView>
             )}
+            
+            {/* 最終更新時刻 */}
+            {weatherData && (
+              <ThemedView style={styles.updateTimeContainer}>
+                <ThemedText style={styles.updateTime}>
+                  最終更新: {new Date(weatherData.lastUpdate).toLocaleTimeString('ja-JP', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </ThemedText>
+              </ThemedView>
+            )}
           </ThemedView>
         ) : (
           <ThemedView style={styles.emptyContainer}>
@@ -163,12 +187,9 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
-  },
-  title: {
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 0,
   },
   placeholder: {
     fontSize: 16,
@@ -231,48 +252,65 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
   },
-  todayWeatherSection: {
+  todayContainer: {
+    width: '100%',
     alignItems: 'center',
-    marginTop: 20,
+    paddingVertical: 5,
+  },
+  todayTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    marginTop: 10,
+    marginBottom: 10,
   },
   weatherIcon: {
-    fontSize: 80,
-    marginBottom: 10,
+    fontSize: 100,
+    lineHeight: 120,
+    marginVertical: 5,
   },
   weatherText: {
     fontSize: 24,
-    marginBottom: 15,
+    fontWeight: '500',
+    marginTop: 0,
+    marginBottom: 10,
   },
   tempContainer: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    marginTop: 20,
     marginBottom: 30,
+    paddingVertical: 25,
+    paddingHorizontal: 10,
   },
   tempMax: {
     fontSize: 48,
     fontWeight: 'bold',
+    lineHeight: 52,
   },
   tempSeparator: {
     fontSize: 30,
-    marginHorizontal: 5,
-    opacity: 0.5,
+    marginHorizontal: 8,
+    opacity: 0.4,
+    lineHeight: 36,
   },
   tempMin: {
     fontSize: 36,
     opacity: 0.7,
+    lineHeight: 40,
   },
   rainSection: {
     width: '100%',
     backgroundColor: 'rgba(0, 122, 255, 0.05)',
-    borderRadius: 15,
+    borderRadius: 16,
     padding: 20,
     marginTop: 10,
   },
   rainTitle: {
-    fontSize: 16,
-    marginBottom: 15,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 20,
     textAlign: 'center',
-    opacity: 0.8,
+    opacity: 0.9,
   },
   rainGrid: {
     flexDirection: 'row',
@@ -280,22 +318,35 @@ const styles = StyleSheet.create({
   },
   rainItem: {
     alignItems: 'center',
+    flex: 1,
+  },
+  rainTimeIcon: {
+    fontSize: 24,
+    marginBottom: 6,
   },
   rainPeriod: {
     fontSize: 14,
-    opacity: 0.6,
-    marginBottom: 5,
+    opacity: 0.7,
+    marginBottom: 12,
+    fontWeight: '500',
   },
   rainValue: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
+    marginTop: 8,
+  },
+  rainHigh: {
+    color: '#FF3B30',
+  },
+  rainMedium: {
+    color: '#FF9500',
   },
   tomorrowSection: {
     width: '100%',
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.1)',
-    marginTop: 30,
-    paddingTop: 20,
+    marginTop: 50,
+    paddingTop: 30,
   },
   tomorrowTitle: {
     fontSize: 16,
@@ -329,5 +380,16 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     opacity: 0.6,
+  },
+  updateTimeContainer: {
+    marginTop: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  updateTime: {
+    fontSize: 14,
+    opacity: 0.5,
+    textAlign: 'center',
   },
 });
