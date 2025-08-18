@@ -89,6 +89,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 10,
+    minWidth: 80,
+    minHeight: 80,
   },
   icon: {
     textAlign: 'center',

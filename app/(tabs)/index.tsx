@@ -2,7 +2,7 @@ import { StyleSheet, TouchableOpacity, ScrollView, RefreshControl, ActivityIndic
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { LocationPermission } from '@/components/LocationPermission';
-import { TodayWeather } from '@/components/weather/TodayWeather';
+import { TomorrowWeather } from '@/components/weather/TomorrowWeather';
 import { useLocation } from '@/hooks/useLocation';
 import { useWeatherData } from '@/hooks/useWeatherData';
 import { WEATHER_ICONS } from '@/constants/weatherIcons';
@@ -27,15 +27,6 @@ export default function HomeScreen() {
     refresh: refreshWeather,
   } = useWeatherData({ location });
 
-  // デバッグ情報を表示
-  console.log('HomeScreen render:', {
-    hasPermission,
-    locationLoading,
-    locationError,
-    location: location ? 'exists' : 'null',
-    todayWeather: todayWeather ? 'exists' : 'null',
-    weatherLoading
-  });
 
   // リフレッシュ処理（位置情報がある場合は天気のみ更新）
   const handleRefresh = async () => {
@@ -144,19 +135,9 @@ export default function HomeScreen() {
               </ThemedView>
             </ThemedView>
             
-            {/* 明日の天気 */}
+            {/* 明日の天気 - 専用コンポーネント使用 */}
             {tomorrowWeather && (
-              <ThemedView style={styles.tomorrowSection}>
-                <ThemedText style={styles.tomorrowTitle}>明日の天気</ThemedText>
-                <ThemedView style={styles.tomorrowContent}>
-                  <ThemedText style={styles.tomorrowIcon}>
-                    {WEATHER_ICONS[tomorrowWeather.weather]}
-                  </ThemedText>
-                  <ThemedText style={styles.tomorrowTemp}>
-                    {tomorrowWeather.tempMax}° / {tomorrowWeather.tempMin}°
-                  </ThemedText>
-                </ThemedView>
-              </ThemedView>
+              <TomorrowWeather weather={tomorrowWeather} />
             )}
             
             {/* 最終更新時刻 */}
@@ -341,30 +322,6 @@ const styles = StyleSheet.create({
   rainMedium: {
     color: '#FF9500',
   },
-  tomorrowSection: {
-    width: '100%',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.1)',
-    marginTop: 50,
-    paddingTop: 30,
-  },
-  tomorrowTitle: {
-    fontSize: 16,
-    opacity: 0.8,
-    marginBottom: 10,
-  },
-  tomorrowContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tomorrowIcon: {
-    fontSize: 32,
-    marginRight: 15,
-  },
-  tomorrowTemp: {
-    fontSize: 20,
-  },
   errorText: {
     fontSize: 18,
     marginBottom: 10,
@@ -382,10 +339,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   updateTimeContainer: {
-    marginTop: 20,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0, 0, 0, 0.05)',
+    marginTop: 25,
+    paddingTop: 15,
+    paddingBottom: 20,
   },
   updateTime: {
     fontSize: 14,
