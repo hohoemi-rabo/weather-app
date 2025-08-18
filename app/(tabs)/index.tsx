@@ -5,11 +5,13 @@ import { ThemedView } from '@/components/ThemedView';
 import { LocationPermission } from '@/components/LocationPermission';
 import { TomorrowWeather } from '@/components/weather/TomorrowWeather';
 import { AutoUpdateSettings } from '@/components/AutoUpdateSettings';
+import { ErrorMessage } from '@/components/ErrorMessage';
 import { useLocation } from '@/hooks/useLocation';
 import { useWeatherData } from '@/hooks/useWeatherData';
 import { useAutoUpdate } from '@/hooks/useAutoUpdate';
 import { WEATHER_ICONS } from '@/constants/weatherIcons';
 import { cacheService } from '@/services/cacheService';
+import { errorService } from '@/services/errorService';
 import { formatRelativeTime } from '@/utils/dateUtils';
 
 export default function HomeScreen() {
@@ -101,6 +103,20 @@ export default function HomeScreen() {
       </ThemedView>
     );
   }
+  
+  // 位置情報エラー（権限はあるが取得失敗）
+  if (hasPermission && locationError && !location) {
+    return (
+      <ThemedView style={styles.container}>
+        <ThemedView style={styles.content}>
+          <ErrorMessage 
+            error={errorService.classifyError(locationError)}
+            onRetry={refreshLocation}
+          />
+        </ThemedView>
+      </ThemedView>
+    );
+  }
 
   return (
     <ScrollView
@@ -121,13 +137,10 @@ export default function HomeScreen() {
             <ThemedText style={styles.loadingText}>天気情報を取得中...</ThemedText>
           </ThemedView>
         ) : weatherError ? (
-          <ThemedView style={styles.errorContainer}>
-            <ThemedText style={styles.errorText}>⚠️ 天気情報を取得できませんでした</ThemedText>
-            <ThemedText style={styles.errorDetail}>{weatherError.message}</ThemedText>
-            <TouchableOpacity style={styles.retryButton} onPress={refreshWeather}>
-              <ThemedText style={styles.retryButtonText}>再試行</ThemedText>
-            </TouchableOpacity>
-          </ThemedView>
+          <ErrorMessage 
+            error={errorService.classifyError(weatherError)}
+            onRetry={refreshWeather}
+          />
         ) : todayWeather ? (
           <ThemedView style={styles.weatherContainer}>
             {/* 今日の天気をインラインで表示 */}
