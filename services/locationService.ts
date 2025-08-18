@@ -1,11 +1,30 @@
 import * as Location from 'expo-location';
 import { Linking, Platform } from 'react-native';
 import { LocationData, LocationError } from '@/types/weather';
+import { cacheService } from './cacheService';
 
 class LocationService {
   private cachedLocation: LocationData | null = null;
   private cacheTimestamp: number | null = null;
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5分間キャッシュ
+
+  // 初期化時にキャッシュから位置情報を復元
+  async initialize() {
+    try {
+      const savedLocation = await cacheService.getLocation();
+      if (savedLocation) {
+        this.cachedLocation = {
+          latitude: savedLocation.latitude,
+          longitude: savedLocation.longitude,
+          timestamp: Date.now(),
+        };
+        this.cacheTimestamp = Date.now();
+        console.log('保存された位置情報を復元しました');
+      }
+    } catch (error) {
+      console.log('位置情報の復元に失敗:', error);
+    }
+  }
 
   // 権限をリクエスト
   async requestPermissions(): Promise<boolean> {
@@ -54,13 +73,14 @@ class LocationService {
       }
 
       console.log('新しい位置情報を取得中...');
-      // 位置情報を取得（タイムアウト5秒、精度を下げて高速化）
+      // 位置情報を取得（タイムアウト15秒、精度はBalancedに設定）
       const location = await Promise.race([
         Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Low, // 精度を下げて高速化
+          accuracy: Location.Accuracy.Balanced, // バランス型の精度
+          mayShowUserSettingsDialog: true, // 必要に応じて設定ダイアログを表示
         }),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(this.createError('TIMEOUT', '位置情報の取得がタイムアウトしました')), 5000)
+          setTimeout(() => reject(this.createError('TIMEOUT', '位置情報の取得がタイムアウトしました')), 15000)
         ),
       ]);
 
@@ -73,9 +93,21 @@ class LocationService {
       // キャッシュを更新
       this.cachedLocation = locationData;
       this.cacheTimestamp = Date.now();
+      
+      // AsyncStorageにも保存
+      await cacheService.saveLocation(locationData.latitude, locationData.longitude);
 
       return locationData;
     } catch (error) {
+      // タイムアウトエラーの場合、前回の位置情報があれば使用
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'TIMEOUT') {
+        if (this.cachedLocation) {
+          console.log('タイムアウトしたため、前回の位置情報を使用');
+          return this.cachedLocation;
+        }
+      }
+      
+      // その他のエラーはそのまま投げる
       if (error && typeof error === 'object' && 'code' in error) {
         throw error;
       }

@@ -98,6 +98,9 @@ export function useLocation(): UseLocationReturn {
       try {
         setLoading(true);
         
+        // LocationServiceを初期化（キャッシュから位置情報を復元）
+        await locationService.initialize();
+        
         // 権限状態を確認
         const hasPermission = await locationService.checkPermissions();
         setHasPermission(hasPermission);

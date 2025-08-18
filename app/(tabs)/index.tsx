@@ -1,14 +1,20 @@
+import { useState } from 'react';
 import { StyleSheet, TouchableOpacity, ScrollView, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { LocationPermission } from '@/components/LocationPermission';
 import { TomorrowWeather } from '@/components/weather/TomorrowWeather';
+import { AutoUpdateSettings } from '@/components/AutoUpdateSettings';
 import { useLocation } from '@/hooks/useLocation';
 import { useWeatherData } from '@/hooks/useWeatherData';
+import { useAutoUpdate } from '@/hooks/useAutoUpdate';
 import { WEATHER_ICONS } from '@/constants/weatherIcons';
 import { cacheService } from '@/services/cacheService';
+import { formatRelativeTime } from '@/utils/dateUtils';
 
 export default function HomeScreen() {
+  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
+  
   const {
     location,
     loading: locationLoading,
@@ -30,6 +36,12 @@ export default function HomeScreen() {
     isStale,
     isOffline,
   } = useWeatherData({ location });
+
+  // 自動更新機能
+  const { isUpdating, lastAutoUpdate } = useAutoUpdate({
+    onUpdate: refreshWeather,
+    enabled: autoUpdateEnabled && !!location && !isOffline,
+  });
 
 
   // リフレッシュ処理（位置情報がある場合は天気のみ更新）
@@ -164,6 +176,12 @@ export default function HomeScreen() {
               <TomorrowWeather weather={tomorrowWeather} />
             )}
             
+            {/* 自動更新設定 */}
+            <AutoUpdateSettings
+              enabled={autoUpdateEnabled}
+              onToggle={setAutoUpdateEnabled}
+            />
+            
             {/* 最終更新時刻とステータス */}
             {weatherData && (
               <ThemedView style={styles.updateTimeContainer}>
@@ -177,14 +195,18 @@ export default function HomeScreen() {
                     styles.updateTime,
                     isStale && styles.staleText
                   ]}>
-                    最終更新: {weatherData.lastUpdate ? new Date(weatherData.lastUpdate).toLocaleTimeString('ja-JP', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    }) : '---'}
+                    最終更新: {weatherData.lastUpdate ? formatRelativeTime(weatherData.lastUpdate) : '---'}
                     {isFromCache && ' (キャッシュ)'}
                     {isStale && ' ⚠️'}
+                    {isUpdating && ' 🔄'}
                   </ThemedText>
                 </TouchableOpacity>
+                {isUpdating && (
+                  <ThemedView style={styles.updatingIndicator}>
+                    <ActivityIndicator size="small" />
+                    <ThemedText style={styles.updatingText}>更新中...</ThemedText>
+                  </ThemedView>
+                )}
               </ThemedView>
             )}
           </ThemedView>
@@ -401,5 +423,18 @@ const styles = StyleSheet.create({
   },
   staleText: {
     color: '#FF9500',
+  },
+  updatingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  updatingText: {
+    fontSize: 12,
+    marginLeft: 8,
+    opacity: 0.7,
   },
 });
