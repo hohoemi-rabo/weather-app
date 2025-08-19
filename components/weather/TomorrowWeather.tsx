@@ -53,7 +53,7 @@ export { TomorrowWeatherComponent as TomorrowWeather };
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    marginTop: 30,
+    marginTop: 10,
     paddingTop: 20,
     paddingBottom: 15,
     paddingHorizontal: 20,

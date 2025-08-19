@@ -10,7 +10,7 @@ export const CACHE_KEYS = {
 
 // キャッシュ有効期限（ミリ秒）
 export const CACHE_DURATION = {
-  WEATHER: 60 * 60 * 1000,       // 1時間
+  WEATHER: 10 * 60 * 1000,       // 10分（テスト用に短縮）
   LOCATION: 24 * 60 * 60 * 1000, // 24時間
 } as const;
 

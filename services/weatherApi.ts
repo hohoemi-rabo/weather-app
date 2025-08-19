@@ -22,6 +22,8 @@ class WeatherApiService {
     
     if (!this.apiKey) {
       console.error('OpenWeatherMap APIキーが設定されていません');
+    } else {
+      console.log('✅ OpenWeatherMap APIキー設定済み');
     }
   }
 
@@ -44,10 +46,15 @@ class WeatherApiService {
       });
 
       if (!response.ok) {
+        const errorData = await response.text();
+        console.error(`API Response Error: ${response.status}`, errorData);
         throw new Error(`API Error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      if (__DEV__) {
+        console.log('✅ 現在の天気取得成功:', data.name, data.weather[0].description);
+      }
       return data;
     } catch (error) {
       console.error('現在の天気取得エラー:', error);
@@ -105,6 +112,15 @@ class WeatherApiService {
         const itemDate = new Date(item.dt * 1000);
         return itemDate >= today && itemDate < tomorrow;
       });
+
+      // デバッグログ（必要に応じて有効化）
+      // if (__DEV__) {
+      //   console.log('今日の予報データ数:', todayForecasts.length);
+      //   todayForecasts.forEach(item => {
+      //     const date = new Date(item.dt * 1000);
+      //     console.log(`${date.getHours()}時: 天気=${item.weather[0].main}, 降水確率=${(item.pop || 0) * 100}%`);
+      //   });
+      // }
 
       // 時間帯別の降水確率を計算
       const rainChance = this.calculateRainChanceByPeriod(todayForecasts);
@@ -181,33 +197,50 @@ class WeatherApiService {
   // 時間帯別の降水確率を計算
   private calculateRainChanceByPeriod(forecasts: OpenWeatherForecastResponse['list']): [number, number, number, number] {
     const periods = {
-      morning: [] as number[],   // 0-6時
-      daytime: [] as number[],   // 6-12時
-      evening: [] as number[],   // 12-18時
-      night: [] as number[],     // 18-24時
+      morning: [] as number[],   // 6-12時（朝）
+      daytime: [] as number[],   // 12-18時（昼）
+      evening: [] as number[],   // 18-24時（夕）
+      night: [] as number[],     // 0-6時（夜）
     };
 
     forecasts.forEach(item => {
       const hour = new Date(item.dt * 1000).getHours();
       const rainChance = Math.round((item.pop || 0) * 100);
 
-      if (hour >= 0 && hour < 6) {
+      // デバッグログ（必要に応じて有効化）
+      // if (__DEV__) {
+      //   console.log(`時刻: ${hour}時, 降水確率: ${rainChance}%`);
+      // }
+
+      if (hour >= 6 && hour < 12) {
         periods.morning.push(rainChance);
-      } else if (hour >= 6 && hour < 12) {
-        periods.daytime.push(rainChance);
       } else if (hour >= 12 && hour < 18) {
+        periods.daytime.push(rainChance);
+      } else if (hour >= 18 && hour < 24) {
         periods.evening.push(rainChance);
       } else {
         periods.night.push(rainChance);
       }
     });
 
-    return [
+    const result: [number, number, number, number] = [
       periods.morning.length > 0 ? Math.max(...periods.morning) : 0,
       periods.daytime.length > 0 ? Math.max(...periods.daytime) : 0,
       periods.evening.length > 0 ? Math.max(...periods.evening) : 0,
       periods.night.length > 0 ? Math.max(...periods.night) : 0,
     ];
+
+    // デバッグログ（必要に応じて有効化）
+    // if (__DEV__) {
+    //   console.log('降水確率計算結果:', {
+    //     朝: result[0],
+    //     昼: result[1],
+    //     夕: result[2],
+    //     夜: result[3]
+    //   });
+    // }
+
+    return result;
   }
 
   // 時間帯別の天気タイプを取得
