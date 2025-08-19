@@ -5,6 +5,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { LocationPermission } from '@/components/LocationPermission';
 import { TomorrowWeather } from '@/components/weather/TomorrowWeather';
 import { AutoUpdateSettings } from '@/components/AutoUpdateSettings';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { ErrorMessage } from '@/components/ErrorMessage';
 import { WeatherSkeleton } from '@/components/SkeletonLoader';
 import { FadeInView } from '@/components/FadeInView';
@@ -240,6 +241,9 @@ export default function HomeScreen() {
               enabled={autoUpdateEnabled}
               onToggle={setAutoUpdateEnabled}
             />
+            
+            {/* ダークモード切り替え */}
+            <ThemeToggle />
             
             {/* 最終更新時刻とステータス */}
             {weatherData && (
