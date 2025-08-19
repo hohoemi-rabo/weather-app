@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { StyleSheet, TouchableOpacity, ScrollView, RefreshControl, ActivityIndicator, Alert } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -6,16 +6,31 @@ import { LocationPermission } from '@/components/LocationPermission';
 import { TomorrowWeather } from '@/components/weather/TomorrowWeather';
 import { AutoUpdateSettings } from '@/components/AutoUpdateSettings';
 import { ErrorMessage } from '@/components/ErrorMessage';
+import { WeatherSkeleton } from '@/components/SkeletonLoader';
+import { FadeInView } from '@/components/FadeInView';
 import { useLocation } from '@/hooks/useLocation';
 import { useWeatherData } from '@/hooks/useWeatherData';
 import { useAutoUpdate } from '@/hooks/useAutoUpdate';
+import { usePerformanceMonitor } from '@/hooks/usePerformanceMonitor';
 import { WEATHER_ICONS } from '@/constants/weatherIcons';
 import { cacheService } from '@/services/cacheService';
 import { errorService } from '@/services/errorService';
 import { formatRelativeTime } from '@/utils/dateUtils';
+import { debugInfo, validateAccessibility } from '@/utils/testUtils';
 
 export default function HomeScreen() {
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
+  
+  // パフォーマンス監視（開発環境のみ）
+  usePerformanceMonitor();
+
+  // 開発環境でのデバッグ情報表示
+  React.useEffect(() => {
+    if (__DEV__) {
+      debugInfo();
+      validateAccessibility();
+    }
+  }, []);
   
   const {
     location,
@@ -40,7 +55,7 @@ export default function HomeScreen() {
   } = useWeatherData({ location });
 
   // 自動更新機能
-  const { isUpdating, lastAutoUpdate } = useAutoUpdate({
+  const { isUpdating } = useAutoUpdate({
     onUpdate: refreshWeather,
     enabled: autoUpdateEnabled && !!location && !isOffline,
   });
@@ -58,8 +73,19 @@ export default function HomeScreen() {
     }
   };
 
+  // 降水確率の色を計算（memoized）
+  const rainChanceColors = useMemo(() => {
+    if (!todayWeather) return [];
+    
+    return todayWeather.rainChance.map((chance) => {
+      if (chance >= 70) return styles.rainHigh;
+      if (chance >= 40) return styles.rainMedium;
+      return null;
+    });
+  }, [todayWeather?.rainChance]);
+
   // キャッシュクリア（デバッグ用）
-  const handleClearCache = async () => {
+  const handleClearCache = useCallback(async () => {
     Alert.alert(
       'キャッシュクリア',
       'キャッシュをクリアして最新データを取得しますか？',
@@ -76,7 +102,7 @@ export default function HomeScreen() {
         },
       ]
     );
-  };
+  }, [refreshWeather]);
 
   // 位置情報の権限がない場合のみ権限画面を表示
   // エラーがあっても権限があれば再試行可能にする
@@ -132,22 +158,28 @@ export default function HomeScreen() {
       <ThemedView style={styles.content}>
         
         {weatherLoading && !todayWeather ? (
-          <ThemedView style={styles.loadingContainer}>
-            <ActivityIndicator size="large" />
-            <ThemedText style={styles.loadingText}>天気情報を取得中...</ThemedText>
-          </ThemedView>
+          <WeatherSkeleton />
         ) : weatherError ? (
           <ErrorMessage 
             error={errorService.classifyError(weatherError)}
             onRetry={refreshWeather}
           />
         ) : todayWeather ? (
-          <ThemedView style={styles.weatherContainer}>
+          <FadeInView style={{ flex: 1, width: '100%' }}>
+            <ThemedView style={styles.weatherContainer}>
             {/* 今日の天気をインラインで表示 */}
-            <ThemedView style={styles.todayContainer}>
+            <ThemedView 
+              style={styles.todayContainer}
+              accessibilityRole="summary"
+              accessibilityLabel={`今日の天気: ${todayWeather.weatherText}、最高気温${todayWeather.tempMax}度、最低気温${todayWeather.tempMin}度`}
+            >
               <ThemedText type="title" style={styles.todayTitle}>今日の天気</ThemedText>
               
-              <ThemedText style={styles.weatherIcon}>
+              <ThemedText 
+                style={styles.weatherIcon}
+                accessibilityLabel={`天気アイコン: ${todayWeather.weatherText}`}
+                accessibilityRole="image"
+              >
                 {WEATHER_ICONS[todayWeather.weather]}
               </ThemedText>
               
@@ -155,26 +187,40 @@ export default function HomeScreen() {
                 {todayWeather.weatherText}
               </ThemedText>
               
-              <ThemedView style={styles.tempContainer}>
+              <ThemedView 
+                style={styles.tempContainer}
+                accessibilityLabel={`気温: 最高${todayWeather.tempMax}度、最低${todayWeather.tempMin}度`}
+              >
                 <ThemedText style={styles.tempMax}>{todayWeather.tempMax}°</ThemedText>
                 <ThemedText style={styles.tempSeparator}>/</ThemedText>
                 <ThemedText style={styles.tempMin}>{todayWeather.tempMin}°</ThemedText>
               </ThemedView>
               
               {/* 降水確率 */}
-              <ThemedView style={styles.rainSection}>
+              <ThemedView 
+                style={styles.rainSection}
+                accessibilityLabel="時間帯別降水確率"
+              >
                 <ThemedText style={styles.rainTitle}>降水確率</ThemedText>
                 <ThemedView style={styles.rainGrid}>
                   {['朝', '昼', '夕', '夜'].map((period, index) => (
-                    <ThemedView key={period} style={styles.rainItem}>
-                      <ThemedText style={styles.rainTimeIcon}>
+                    <ThemedView 
+                      key={period} 
+                      style={styles.rainItem}
+                      accessibilityLabel={`${period}の降水確率: ${todayWeather.rainChance[index]}パーセント`}
+                      accessibilityRole="text"
+                    >
+                      <ThemedText 
+                        style={styles.rainTimeIcon}
+                        accessibilityLabel={`${period}のアイコン`}
+                        accessibilityRole="image"
+                      >
                         {['🌅', '☀️', '🌆', '🌙'][index]}
                       </ThemedText>
                       <ThemedText style={styles.rainPeriod}>{period}</ThemedText>
                       <ThemedText style={[
                         styles.rainValue,
-                        todayWeather.rainChance[index] >= 70 && styles.rainHigh,
-                        todayWeather.rainChance[index] >= 40 && todayWeather.rainChance[index] < 70 && styles.rainMedium
+                        rainChanceColors[index]
                       ]}>
                         {todayWeather.rainChance[index]}%
                       </ThemedText>
@@ -223,6 +269,7 @@ export default function HomeScreen() {
               </ThemedView>
             )}
           </ThemedView>
+          </FadeInView>
         ) : (
           <ThemedView style={styles.emptyContainer}>
             <ThemedText style={styles.emptyText}>天気情報を取得できません</ThemedText>
@@ -379,13 +426,12 @@ const styles = StyleSheet.create({
   rainPeriod: {
     fontSize: 14,
     opacity: 0.7,
-    marginBottom: 12,
+    marginBottom: 4,
     fontWeight: '500',
   },
   rainValue: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginTop: 8,
   },
   rainHigh: {
     color: '#FF3B30',

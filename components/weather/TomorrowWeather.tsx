@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -9,13 +9,29 @@ interface TomorrowWeatherProps {
   weather: TomorrowWeatherType;
 }
 
-export function TomorrowWeather({ weather }: TomorrowWeatherProps) {
+const TomorrowWeatherComponent = memo(function TomorrowWeather({ weather }: TomorrowWeatherProps) {
+  const weatherText = {
+    sunny: '晴れ',
+    cloudy: 'くもり',
+    rainy: '雨',
+    thunder: '雷雨',
+    snow: '雪'
+  }[weather.weather];
+
   return (
-    <ThemedView style={styles.container}>
+    <ThemedView 
+      style={styles.container}
+      accessibilityRole="summary"
+      accessibilityLabel={`明日の天気: ${weatherText}、最高気温${weather.tempMax}度、最低気温${weather.tempMin}度`}
+    >
       <ThemedText style={styles.title}>明日の天気</ThemedText>
       
       <ThemedView style={styles.content}>
-        <ThemedText style={styles.weatherIcon}>
+        <ThemedText 
+          style={styles.weatherIcon}
+          accessibilityLabel={`天気アイコン: ${weatherText}`}
+          accessibilityRole="image"
+        >
           {WEATHER_ICONS[weather.weather]}
         </ThemedText>
         
@@ -30,7 +46,9 @@ export function TomorrowWeather({ weather }: TomorrowWeatherProps) {
       </ThemedView>
     </ThemedView>
   );
-}
+});
+
+export { TomorrowWeatherComponent as TomorrowWeather };
 
 const styles = StyleSheet.create({
   container: {
